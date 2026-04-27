@@ -1,84 +1,7 @@
-<script>
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
-    let userName = '';
-    let currentQuestion = 0;
-    let timerInterval;
-    let answers = [];
-    const questions = [
-      { q: "It is only a test please press correct answer to test it out at the end", options: ["correct", "incorrect"], correct: 0 },
-      { q: "What is the capital of Uzbekistan?", options: ["Tashkent", "Samarkand", "Bukhara", "Andijan"], correct: 0 },
-      { q: "What is 15 + 15?", options: ["25", "30", "20", "35"], correct: 1 },
-      { q: "Will I get bonus for it? 😊", options: ["Yes", "No", "Maybe", "Only if I smile"], correct: 0 }
-    ];
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwHl0SggRKLfScIxgPILXK8k85CsC7zuYvEmuekTqeAfONo8EY1m8kHiH8QbKHP4KD8xA/exec";
-
-    function startQuiz() {
-      userName = document.getElementById('user-name').value.trim();
-      if (!userName) return alert("Name is required!");
-      document.getElementById('name-screen').style.display = 'none';
-      document.getElementById('quiz-screen').style.display = 'block';
-      loadQuestion();
-    }
-
-    function loadQuestion() {
-      if (currentQuestion >= questions.length) {
-        submitAutomatically();
-        return;
-      }
-      const q = questions[currentQuestion];
-      document.getElementById('question-text').innerText = `${currentQuestion + 1}. ${q.q}`;
-      const optsDiv = document.getElementById('options');
-      optsDiv.innerHTML = '';
-      q.options.forEach((opt, i) => {
-        const btn = document.createElement('div');
-        btn.className = 'option';
-        btn.innerText = opt;
-        btn.onclick = () => selectAnswer(i);
-        optsDiv.appendChild(btn);
-      });
-      startProgressBar();
-    }
-
-    function startProgressBar() {
-      const bar = document.getElementById('progress-bar');
-      let timeLeft = 10;
-      bar.style.width = '100%';
-      clearInterval(timerInterval);
-      timerInterval = setInterval(() => {
-        timeLeft -= 0.1;
-        bar.style.width = (timeLeft / 10 * 100) + '%';
-        if (timeLeft <= 0) {
-          clearInterval(timerInterval);
-          answers.push({ qIndex: currentQuestion, answer: null, correct: false });
-          currentQuestion++;
-          loadQuestion();
-        }
-      }, 100);
-    }
-
-    function selectAnswer(selected) {
-      clearInterval(timerInterval);
-      const q = questions[currentQuestion];
-      answers.push({
-        qIndex: currentQuestion,
-        answer: q.options[selected],
-        correct: selected === q.correct
-      });
-      currentQuestion++;
-      loadQuestion();
-    }
-
-    function submitAutomatically() {
-      document.getElementById('quiz-screen').style.display = 'none';
-      document.getElementById('thank-screen').style.display = 'block';
-      generateAndSendPDF();
-    }
-
-    function generateAndSendPDF() {
+function generateAndSendPDF() {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF('p', 'mm', 'a4');
+      
       const submissionDate = new Date().toLocaleString('en-US', {
         year: 'numeric', month: 'long', day: 'numeric',
         hour: '2-digit', minute: '2-digit'
@@ -89,72 +12,85 @@
       const scorePercent = Math.round((correctCount / totalQuestions) * 100);
 
       // === PROFESSIONAL HEADER ===
-      doc.setFillColor(0, 51, 102);           // Dark blue professional color
-      doc.rect(0, 0, 210, 45, 'F');
+      doc.setFillColor(0, 102, 204);        // Nice professional blue
+      doc.rect(0, 0, 210, 50, 'F');
 
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(22);
-      doc.text("QUIZ RESULT", 105, 22, { align: "center" });
+      doc.setFontSize(24);
+      doc.text("QUIZ RESULT", 105, 28, { align: "center" });
 
       doc.setFontSize(11);
-      doc.setTextColor(220, 220, 220);
-      doc.text("Official Submission", 105, 32, { align: "center" });
+      doc.setTextColor(220, 230, 255);
+      doc.text("OFFICIAL SUBMISSION", 105, 38, { align: "center" });
 
-      // Participant Name
-      doc.setTextColor(0, 0, 0);
+      // Participant Information
+      let y = 70;
+      doc.setTextColor(40, 40, 40);
+      doc.setFontSize(14);
+      doc.text("Participant:", 20, y);
+      
       doc.setFontSize(18);
-      doc.text("Participant:", 20, 65);
-      doc.setFontSize(20);
-      doc.setTextColor(0, 51, 102);
-      doc.text(userName.toUpperCase(), 20, 78);
+      doc.setTextColor(0, 51, 153);
+      doc.text(userName.toUpperCase(), 20, y + 12);
 
       // Submission Date
       doc.setFontSize(12);
       doc.setTextColor(80, 80, 80);
-      doc.text(`Submitted on: ${submissionDate}`, 20, 92);
+      doc.text(`Submitted: ${submissionDate}`, 20, y + 28);
 
-      // Score Summary (clean & professional)
-      doc.setFillColor(245, 245, 245);
-      doc.rect(20, 105, 170, 28, 'F');
-      
-      doc.setFontSize(16);
-      doc.setTextColor(0, 51, 102);
-      doc.text(`Score: ${correctCount}/${totalQuestions} (${scorePercent}%)`, 105, 122, { align: "center" });
+      y += 48;
 
-      // Separator
+      // Score Box - Clean and centered
+      doc.setFillColor(248, 249, 250);
+      doc.roundedRect(20, y, 170, 35, 5, 5, 'F');
+
+      doc.setFontSize(17);
+      doc.setTextColor(0, 102, 204);
+      doc.text(`Correct Answers: ${correctCount}/${totalQuestions} (${scorePercent}%)`, 
+               105, y + 23, { align: "center" });
+
+      y += 55;
+
+      // Divider
       doc.setDrawColor(200, 200, 200);
-      doc.setLineWidth(0.7);
-      doc.line(20, 145, 190, 145);
+      doc.setLineWidth(1);
+      doc.line(20, y, 190, y);
+      y += 15;
 
-      // Detailed Answers
-      let y = 165;
-      doc.setFontSize(13);
-      doc.setTextColor(0, 0, 0);
+      // Questions and Answers - Better alignment
+      doc.setFontSize(12);
+      doc.setTextColor(30, 30, 30);
 
       answers.forEach((ans, i) => {
         const q = questions[i];
-        const userAnswer = ans.answer || "⏰ Time expired";
+        const userAnswer = ans.answer || "Time expired";
         const isCorrect = ans.correct;
 
+        // Question
         doc.setFontSize(12);
-        doc.text(`${i+1}. ${q.q}`, 20, y);
-        y += 10;
+        doc.setTextColor(0, 0, 0);
+        const questionLines = doc.splitTextToSize(`${i+1}. ${q.q}`, 170);
+        doc.text(questionLines, 20, y);
+        y += questionLines.length * 7;
 
+        // User's Answer
         doc.setFontSize(11);
         if (isCorrect) {
           doc.setTextColor(0, 128, 0);
-          doc.text(`✓ ${userAnswer}`, 25, y);
+          doc.text(`✓ Your Answer: ${userAnswer}`, 25, y);
         } else {
           doc.setTextColor(200, 0, 0);
-          doc.text(`✕ ${userAnswer}`, 25, y);
+          doc.text(`✕ Your Answer: ${userAnswer}`, 25, y);
         }
-        y += 8;
+        y += 9;
 
-        doc.setTextColor(100, 100, 100);
-        doc.text(`Correct: ${q.options[q.correct]}`, 25, y);
+        // Correct Answer
+        doc.setTextColor(80, 80, 80);
+        doc.text(`Correct Answer: ${q.options[q.correct]}`, 25, y);
         y += 18;
 
-        if (y > 270) {
+        // Page break if needed
+        if (y > 260) {
           doc.addPage();
           y = 30;
         }
@@ -162,19 +98,20 @@
 
       // Footer
       doc.setFontSize(10);
-      doc.setTextColor(140, 140, 140);
-      doc.text("Thank you for your participation", 105, 290, { align: "center" });
+      doc.setTextColor(120, 120, 120);
+      doc.text("Thank you for participating in the quiz", 105, 285, { align: "center" });
+      doc.text("Generated via Telegram Mini App", 105, 292, { align: "center" });
 
       const pdfBase64 = doc.output('datauristring').split(',')[1];
 
-      // Progress simulation
+      // Progress animation
       const progressBar = document.getElementById('progress-bar');
       let progress = 0;
       const progressInterval = setInterval(() => {
-        progress += 12 + Math.random() * 18;
+        progress += 15 + Math.random() * 15;
         if (progress > 92) progress = 92;
         progressBar.style.width = progress + '%';
-      }, 220);
+      }, 180);
 
       setTimeout(() => {
         clearInterval(progressInterval);
@@ -194,18 +131,14 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
           mode: 'no-cors'
-        })
-        .then(() => {
+        }).then(() => {
           document.getElementById('thank-title').innerHTML = "✅ Thank you!";
           document.getElementById('thank-text').innerHTML = "Your submission has been recorded.<br>You can close this window now.";
           document.getElementById('status-text').style.display = "none";
-        })
-        .catch(err => {
-          console.error("Fetch error:", err);
+        }).catch(() => {
           document.getElementById('thank-title').innerHTML = "✅ Thank you!";
           document.getElementById('thank-text').innerHTML = "Your submission has been recorded.<br>You can close this window now.";
           document.getElementById('status-text').style.display = "none";
         });
-      }, 1800);
+      }, 1600);
     }
-  </script>
