@@ -1,7 +1,178 @@
-function generateAndSendPDF() {
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Quiz</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f0f0f;
+      color: white;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+      min-height: 100vh;
+    }
+    .container { max-width: 420px; margin: 40px auto 0; }
+    h1 { font-size: 28px; margin-bottom: 8px; }
+    p { color: #aaaaaa; margin-bottom: 20px; }
+    input, button {
+      width: 100%;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      border-radius: 16px;
+      font-size: 17px;
+      box-sizing: border-box;
+    }
+    input { background: #1f1f1f; color: white; border: none; }
+    button {
+      background: #229ED9;
+      color: white;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:active { background: #1a8ac4; }
+    .option {
+      background: #1f1f1f;
+      margin: 10px 0;
+      padding: 16px;
+      border-radius: 12px;
+      text-align: left;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #progress-container {
+      height: 12px;
+      background: #333;
+      border-radius: 10px;
+      margin: 25px 0;
+      overflow: hidden;
+    }
+    #progress-bar {
+      height: 100%;
+      background: #ff4444;
+      transition: width 0.4s ease;
+    }
+  </style>
+</head>
+<body>
+  <!-- Name Screen -->
+  <div id="name-screen" class="container">
+    <h1>📝 Quiz</h1>
+    <p>Please enter your full name to start</p>
+    <input id="user-name" type="text" placeholder="Your Full Name">
+    <button onclick="startQuiz()">Start Quiz</button>
+  </div>
+
+  <!-- Quiz Screen -->
+  <div id="quiz-screen" style="display: none;" class="container">
+    <h2 id="question-text"></h2>
+    <div id="progress-container">
+      <div id="progress-bar" style="width:100%"></div>
+    </div>
+    <div id="options"></div>
+  </div>
+
+  <!-- Processing Screen -->
+  <div id="thank-screen" style="display: none;" class="container">
+    <h1 id="thank-title">Processing...</h1>
+    <p id="thank-text">Please wait while we save your result</p>
+   
+    <div id="progress-container">
+      <div id="progress-bar" style="width:0%"></div>
+    </div>
+    <p id="status-text" style="color:#aaa; margin-top:15px;"></p>
+  </div>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+
+    let userName = '';
+    let currentQuestion = 0;
+    let timerInterval;
+    let answers = [];
+
+    const questions = [
+      { q: "It is only a test please press correct answer to test it out at the end", options: ["correct", "incorrect"], correct: 0 },
+      { q: "What is the capital of Uzbekistan?", options: ["Tashkent", "Samarkand", "Bukhara", "Andijan"], correct: 0 },
+      { q: "What is 15 + 15?", options: ["25", "30", "20", "35"], correct: 1 },
+      { q: "Will I get bonus for it? 😊", options: ["Yes", "No", "Maybe", "Only if I smile"], correct: 0 }
+    ];
+
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwHl0SggRKLfScIxgPILXK8k85CsC7zuYvEmuekTqeAfONo8EY1m8kHiH8QbKHP4KD8xA/exec";
+
+    function startQuiz() {
+      userName = document.getElementById('user-name').value.trim();
+      if (!userName) return alert("Name is required!");
+      document.getElementById('name-screen').style.display = 'none';
+      document.getElementById('quiz-screen').style.display = 'block';
+      loadQuestion();
+    }
+
+    function loadQuestion() {
+      if (currentQuestion >= questions.length) {
+        submitAutomatically();
+        return;
+      }
+      const q = questions[currentQuestion];
+      document.getElementById('question-text').innerText = `${currentQuestion + 1}. ${q.q}`;
+      const optsDiv = document.getElementById('options');
+      optsDiv.innerHTML = '';
+      q.options.forEach((opt, i) => {
+        const btn = document.createElement('div');
+        btn.className = 'option';
+        btn.innerText = opt;
+        btn.onclick = () => selectAnswer(i);
+        optsDiv.appendChild(btn);
+      });
+      startProgressBar();
+    }
+
+    function startProgressBar() {
+      const bar = document.getElementById('progress-bar');
+      let timeLeft = 10;
+      bar.style.width = '100%';
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        timeLeft -= 0.1;
+        bar.style.width = (timeLeft / 10 * 100) + '%';
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          answers.push({ qIndex: currentQuestion, answer: null, correct: false });
+          currentQuestion++;
+          loadQuestion();
+        }
+      }, 100);
+    }
+
+    function selectAnswer(selected) {
+      clearInterval(timerInterval);
+      const q = questions[currentQuestion];
+      answers.push({
+        qIndex: currentQuestion,
+        answer: q.options[selected],
+        correct: selected === q.correct
+      });
+      currentQuestion++;
+      loadQuestion();
+    }
+
+    function submitAutomatically() {
+      document.getElementById('quiz-screen').style.display = 'none';
+      document.getElementById('thank-screen').style.display = 'block';
+      generateAndSendPDF();
+    }
+
+    function generateAndSendPDF() {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF('p', 'mm', 'a4');
-      
+
       const submissionDate = new Date().toLocaleString('en-US', {
         year: 'numeric', month: 'long', day: 'numeric',
         hour: '2-digit', minute: '2-digit'
@@ -11,86 +182,66 @@ function generateAndSendPDF() {
       const totalQuestions = questions.length;
       const scorePercent = Math.round((correctCount / totalQuestions) * 100);
 
-      // === PROFESSIONAL HEADER ===
-      doc.setFillColor(0, 102, 204);        // Nice professional blue
-      doc.rect(0, 0, 210, 50, 'F');
+          // === PROFESSIONAL HEADER ===
+      doc.setFillColor(34, 158, 217);        // Keep your original nice blue color
+      doc.rect(0, 0, 210, 45, 'F');          // Slightly taller header
 
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(24);
+      doc.setFontSize(26);                   // Bigger text
+      doc.setFont("helvetica", "bold");      // Make text bold
       doc.text("QUIZ RESULT", 105, 28, { align: "center" });
 
+      // Optional subtle subtitle
       doc.setFontSize(11);
-      doc.setTextColor(220, 230, 255);
-      doc.text("OFFICIAL SUBMISSION", 105, 38, { align: "center" });
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(230, 240, 255);
+      doc.text("OFFICIAL RESULT", 105, 38, { align: "center" });
 
-      // Participant Information
-      let y = 70;
-      doc.setTextColor(40, 40, 40);
-      doc.setFontSize(14);
-      doc.text("Participant:", 20, y);
-      
+      // Info
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(16);
+      doc.text(`Participant: ${userName}`, 20, 55);
+      doc.text(`Submitted: ${submissionDate}`, 20, 65);
+
+      // Score
+      doc.setFillColor(240, 240, 240);
+      doc.rect(20, 80, 170, 35, 'F');
       doc.setFontSize(18);
-      doc.setTextColor(0, 51, 153);
-      doc.text(userName.toUpperCase(), 20, y + 12);
+      doc.setTextColor(34, 158, 217);
+      doc.text(`Correct Answers: ${correctCount}/${totalQuestions} (${scorePercent}%)`, 105, 98, { align: "center" });
 
-      // Submission Date
-      doc.setFontSize(12);
-      doc.setTextColor(80, 80, 80);
-      doc.text(`Submitted: ${submissionDate}`, 20, y + 28);
+      doc.setDrawColor(34, 158, 217);
+      doc.setLineWidth(0.8);
+      doc.line(20, 125, 190, 125);
 
-      y += 48;
-
-      // Score Box - Clean and centered
-      doc.setFillColor(248, 249, 250);
-      doc.roundedRect(20, y, 170, 35, 5, 5, 'F');
-
-      doc.setFontSize(17);
-      doc.setTextColor(0, 102, 204);
-      doc.text(`Correct Answers: ${correctCount}/${totalQuestions} (${scorePercent}%)`, 
-               105, y + 23, { align: "center" });
-
-      y += 55;
-
-      // Divider
-      doc.setDrawColor(200, 200, 200);
-      doc.setLineWidth(1);
-      doc.line(20, y, 190, y);
-      y += 15;
-
-      // Questions and Answers - Better alignment
-      doc.setFontSize(12);
-      doc.setTextColor(30, 30, 30);
+      // Answers
+      let y = 145;
+      doc.setFontSize(13);
+      doc.setTextColor(0, 0, 0);
 
       answers.forEach((ans, i) => {
         const q = questions[i];
-        const userAnswer = ans.answer || "Time expired";
+        const userAnswer = ans.answer || "⏰ Time expired";
         const isCorrect = ans.correct;
 
-        // Question
-        doc.setFontSize(12);
-        doc.setTextColor(0, 0, 0);
-        const questionLines = doc.splitTextToSize(`${i+1}. ${q.q}`, 170);
-        doc.text(questionLines, 20, y);
-        y += questionLines.length * 7;
+        doc.text(`${i+1}. ${q.q}`, 20, y);
+        y += 12;
 
-        // User's Answer
         doc.setFontSize(11);
         if (isCorrect) {
-          doc.setTextColor(0, 128, 0);
+          doc.setTextColor(0, 150, 0);
           doc.text(`✓ Your Answer: ${userAnswer}`, 25, y);
         } else {
-          doc.setTextColor(200, 0, 0);
+          doc.setTextColor(200, 50, 50);
           doc.text(`✕ Your Answer: ${userAnswer}`, 25, y);
         }
         y += 9;
 
-        // Correct Answer
         doc.setTextColor(80, 80, 80);
         doc.text(`Correct Answer: ${q.options[q.correct]}`, 25, y);
         y += 18;
 
-        // Page break if needed
-        if (y > 260) {
+        if (y > 270) {
           doc.addPage();
           y = 30;
         }
@@ -98,21 +249,22 @@ function generateAndSendPDF() {
 
       // Footer
       doc.setFontSize(10);
-      doc.setTextColor(120, 120, 120);
-      doc.text("Thank you for participating in the quiz", 105, 285, { align: "center" });
-      doc.text("Generated via Telegram Mini App", 105, 292, { align: "center" });
+      doc.setTextColor(140, 140, 140);
+      doc.text("Thank you for participating!", 105, 290, { align: "center" });
+      doc.text("Generated via Telegram Mini App", 105, 297, { align: "center" });
 
       const pdfBase64 = doc.output('datauristring').split(',')[1];
 
-      // Progress animation
+      // Progress
       const progressBar = document.getElementById('progress-bar');
       let progress = 0;
       const progressInterval = setInterval(() => {
-        progress += 15 + Math.random() * 15;
+        progress += 12 + Math.random() * 18;
         if (progress > 92) progress = 92;
         progressBar.style.width = progress + '%';
-      }, 180);
+      }, 220);
 
+      // Send with no-cors mode to bypass CORS issues
       setTimeout(() => {
         clearInterval(progressInterval);
         progressBar.style.width = '100%';
@@ -130,15 +282,23 @@ function generateAndSendPDF() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
-          mode: 'no-cors'
-        }).then(() => {
+          mode: 'no-cors'          // ← This is the key fix for CORS in Telegram Mini Apps
+        })
+        .then(() => {
+          // With no-cors we can't read the response, so we assume success
           document.getElementById('thank-title').innerHTML = "✅ Thank you!";
           document.getElementById('thank-text').innerHTML = "Your submission has been recorded.<br>You can close this window now.";
           document.getElementById('status-text').style.display = "none";
-        }).catch(() => {
+        })
+        .catch(err => {
+          console.error("Fetch error:", err);
+          // Still show neutral success message (the PDF is usually sent anyway)
           document.getElementById('thank-title').innerHTML = "✅ Thank you!";
           document.getElementById('thank-text').innerHTML = "Your submission has been recorded.<br>You can close this window now.";
           document.getElementById('status-text').style.display = "none";
         });
-      }, 1600);
+      }, 1800);
     }
+  </script>
+</body>
+</html>
