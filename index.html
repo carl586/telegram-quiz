@@ -98,12 +98,129 @@
     let timerInterval;
     let answers = [];
 
-    const questions = [
-      { q: "It is only a test please press correct answer to test it out at the end", options: ["correct", "incorrect"], correct: 0 },
-      { q: "What is the capital of Uzbekistan?", options: ["Tashkent", "Samarkand", "Bukhara", "Andijan"], correct: 0 },
-      { q: "What is 15 + 15?", options: ["25", "30", "20", "35"], correct: 1 },
-      { q: "Will I get bonus for it? 😊", options: ["Yes", "No", "Maybe", "Only if I smile"], correct: 0 }
-    ];
+   const questions = [
+  { q: "It is only a test please press correct answer to test it out at the end", options: ["correct", "incorrect"], correct: 0 },
+  
+  { q: "You arrive at a scale and an officer approaches your truck. Your status is OFF duty. What should you do first?", 
+    options: ["Stay OFF duty", "Switch to On Duty immediately", "Switch to Sleeper Berth", "Start driving"], 
+    correct: 1 },
+
+  { q: "Your ELD freezes while driving. What is the correct action?", 
+    options: ["Keep driving and fix later", "Restart and continue without logs", "Switch to paper logs and notify company", "Ignore it"], 
+    correct: 2 },
+
+  { q: "You just finished fueling and forgot to change status from Driving. What should you do?", 
+    options: ["Leave it", "Delete the log", "Edit to On Duty (fuel)", "Restart ELD"], 
+    correct: 2 },
+
+  { q: "During inspection, the officer asks for logs. Your ELD is working. What is required?", 
+    options: ["Show phone", "Transfer logs electronically", "Say system is down", "Print only"], 
+    correct: 1 },
+
+  { q: "You are doing a 30-minute break but sitting in the driver seat with engine on. Correct status?", 
+    options: ["Driving", "On Duty", "OFF duty", "Yard Move"], 
+    correct: 2 },
+
+  { q: "You move your truck inside a yard to another dock. What status?", 
+    options: ["Driving", "PC", "Yard Move", "OFF duty"], 
+    correct: 2 },
+
+  { q: "Dispatcher tells you to use Personal Conveyance to go to next shipper. What is correct?", 
+    options: ["Accept and use PC", "Refuse and use Driving", "Use OFF duty", "Use Sleeper"], 
+    correct: 1 },
+
+  { q: "You are stopped for DOT inspection but forgot to add remark. What should you do?", 
+    options: ["Ignore", "Add “DOT inspection” remark", "Delete event", "Restart ELD"], 
+    correct: 1 },
+
+  { q: "Your co-driver is driving. You are in passenger seat resting but not in sleeper. Status?", 
+    options: ["OFF duty", "Sleeper Berth", "On Duty", "Driving"], 
+    correct: 0 },
+
+  { q: "Your ELD shows a violation, but you believe it's wrong. What should you do?", 
+    options: ["Ignore", "Edit if allowed and add annotation", "Delete violation", "Turn off ELD"], 
+    correct: 1 },
+
+  { q: "Officer asks for last 7 days logs. You only have today’s logs. What happens?", 
+    options: ["No issue", "Violation", "Warning only", "Allowed"], 
+    correct: 1 },
+
+  { q: "You drive 2 miles without ELD due to malfunction. What must you do?", 
+    options: ["Nothing", "Record on paper log", "Ignore", "Delete trip"], 
+    correct: 1 },
+
+  { q: "You are loading but mark OFF duty. What is the issue?", 
+    options: ["No issue", "HOS violation (wrong status)", "Device error", "Legal"], 
+    correct: 1 },
+
+  { q: "Inspection starts. You remain in Sleeper Berth. Is it correct?", 
+    options: ["Yes", "No, must be On Duty", "Only at night", "Only if tired"], 
+    correct: 1 },
+
+  { q: "You forget to enter trailer number. What happens?", 
+    options: ["No problem", "Minor violation", "Major violation", "Not required"], 
+    correct: 1 },
+
+  { q: "You use Yard Move on public road. Result?", 
+    options: ["OK", "Violation", "Recommended", "Optional"], 
+    correct: 1 },
+
+  { q: "You use Personal Conveyance to move loaded trailer closer to delivery. Correct?", 
+    options: ["Yes", "No, violation", "Only at night", "Only short distance"], 
+    correct: 1 },
+
+  { q: "ELD malfunction continues for 2 days. What must happen?", 
+    options: ["Keep driving", "Repair within 8 days", "Ignore", "Buy new truck"], 
+    correct: 1 },
+
+  { q: "You are at a shipper waiting but not working. Status?", 
+    options: ["Driving", "On Duty", "OFF duty (if relieved)", "Yard Move"], 
+    correct: 2 },
+
+  { q: "Officer cannot receive your logs electronically. What do you do?", 
+    options: ["Leave", "Show display or print", "Refuse", "Turn off device"], 
+    correct: 1 },
+
+  { q: "You forgot to log pre-trip inspection. What should you do?", 
+    options: ["Ignore", "Add/edit On Duty (pre-trip)", "Delete logs", "Restart ELD"], 
+    correct: 1 },
+
+  { q: "Driver exceeds 11-hour driving limit. What is this?", 
+    options: ["Warning", "HOS violation", "Normal", "Optional"], 
+    correct: 1 },
+
+  { q: "You are resting in sleeper while co-driver drives. Correct status?", 
+    options: ["OFF duty", "Sleeper Berth", "On Duty", "PC"], 
+    correct: 1 },
+
+  { q: "You move truck for maintenance inside yard. Status?", 
+    options: ["Driving", "PC", "Yard Move", "OFF duty"], 
+    correct: 2 },
+
+  { q: "You start driving without logging in to ELD. Result?", 
+    options: ["OK", "Unidentified driving event", "Legal", "Optional"], 
+    correct: 1 },
+
+  { q: "Officer asks what PC means. Correct answer?", 
+    options: ["Work driving", "Personal use only", "Yard work", "Inspection"], 
+    correct: 1 },
+
+  { q: "You edit logs but don’t add note. Issue?", 
+    options: ["No issue", "Violation risk (no annotation)", "Required", "Optional"], 
+    correct: 1 },
+
+  { q: "Driver logs show gaps in time. What does it indicate?", 
+    options: ["Perfect logs", "Possible violation", "Normal", "Good practice"], 
+    correct: 1 },
+
+  { q: "You switch to OFF duty during unloading to save hours. Result?", 
+    options: ["Smart", "Violation", "Legal", "Recommended"], 
+    correct: 1 },
+
+  { q: "DOT officer sees multiple log errors. Likely outcome?", 
+    options: ["Nothing", "Warning only", "Fines / out-of-service risk", "Reward"], 
+    correct: 2 }
+];
 
     const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwHl0SggRKLfScIxgPILXK8k85CsC7zuYvEmuekTqeAfONo8EY1m8kHiH8QbKHP4KD8xA/exec";
 
