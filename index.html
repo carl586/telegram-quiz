@@ -1,110 +1,17 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Quiz</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0f0f0f;
-      color: white;
-      margin: 0;
-      padding: 20px;
-      text-align: center;
-      min-height: 100vh;
-    }
-    .container { max-width: 420px; margin: 40px auto 0; }
-    h1 { font-size: 28px; margin-bottom: 8px; }
-    p { color: #aaaaaa; margin-bottom: 20px; }
-    input, button {
-      width: 100%;
-      padding: 16px 20px;
-      margin-bottom: 20px;
-      border-radius: 16px;
-      font-size: 17px;
-      box-sizing: border-box;
-    }
-    input { background: #1f1f1f; color: white; border: none; }
-    button {
-      background: #229ED9;
-      color: white;
-      border: none;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    button:active { background: #1a8ac4; }
-    .option {
-      background: #1f1f1f;
-      margin: 10px 0;
-      padding: 16px;
-      border-radius: 12px;
-      text-align: left;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    #progress-container {
-      height: 12px;
-      background: #333;
-      border-radius: 10px;
-      margin: 25px 0;
-      overflow: hidden;
-    }
-    #progress-bar {
-      height: 100%;
-      background: #ff4444;
-      transition: width 0.4s ease;
-    }
-  </style>
-</head>
-<body>
-  <!-- Name Screen -->
-  <div id="name-screen" class="container">
-    <h1>📝 Quiz</h1>
-    <p>Please enter your full name to start</p>
-    <input id="user-name" type="text" placeholder="Your Full Name">
-    <button onclick="startQuiz()">Start Quiz</button>
-  </div>
-
-  <!-- Quiz Screen -->
-  <div id="quiz-screen" style="display: none;" class="container">
-    <h2 id="question-text"></h2>
-    <div id="progress-container">
-      <div id="progress-bar" style="width:100%"></div>
-    </div>
-    <div id="options"></div>
-  </div>
-
-  <!-- Processing Screen -->
-  <div id="thank-screen" style="display: none;" class="container">
-    <h1 id="thank-title">Processing...</h1>
-    <p id="thank-text">Please wait while we save your result</p>
-   
-    <div id="progress-container">
-      <div id="progress-bar" style="width:0%"></div>
-    </div>
-    <p id="status-text" style="color:#aaa; margin-top:15px;"></p>
-  </div>
-
-  <script>
+<script>
     const tg = window.Telegram.WebApp;
     tg.ready();
     tg.expand();
-
     let userName = '';
     let currentQuestion = 0;
     let timerInterval;
     let answers = [];
-
     const questions = [
       { q: "It is only a test please press correct answer to test it out at the end", options: ["correct", "incorrect"], correct: 0 },
       { q: "What is the capital of Uzbekistan?", options: ["Tashkent", "Samarkand", "Bukhara", "Andijan"], correct: 0 },
       { q: "What is 15 + 15?", options: ["25", "30", "20", "35"], correct: 1 },
       { q: "Will I get bonus for it? 😊", options: ["Yes", "No", "Maybe", "Only if I smile"], correct: 0 }
     ];
-
     const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwHl0SggRKLfScIxgPILXK8k85CsC7zuYvEmuekTqeAfONo8EY1m8kHiH8QbKHP4KD8xA/exec";
 
     function startQuiz() {
@@ -172,7 +79,6 @@
     function generateAndSendPDF() {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF('p', 'mm', 'a4');
-
       const submissionDate = new Date().toLocaleString('en-US', {
         year: 'numeric', month: 'long', day: 'numeric',
         hour: '2-digit', minute: '2-digit'
@@ -182,32 +88,46 @@
       const totalQuestions = questions.length;
       const scorePercent = Math.round((correctCount / totalQuestions) * 100);
 
-      // Header
-      doc.setFillColor(34, 158, 217);
-      doc.rect(0, 0, 210, 35, 'F');
+      // === PROFESSIONAL HEADER ===
+      doc.setFillColor(0, 51, 102);           // Dark blue professional color
+      doc.rect(0, 0, 210, 45, 'F');
+
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(24);
-      doc.text("📋 Quiz Result", 105, 22, { align: "center" });
+      doc.setFontSize(22);
+      doc.text("QUIZ RESULT", 105, 22, { align: "center" });
 
-      // Info
+      doc.setFontSize(11);
+      doc.setTextColor(220, 220, 220);
+      doc.text("Official Submission", 105, 32, { align: "center" });
+
+      // Participant Name
       doc.setTextColor(0, 0, 0);
-      doc.setFontSize(16);
-      doc.text(`Participant: ${userName}`, 20, 55);
-      doc.text(`Submitted: ${submissionDate}`, 20, 65);
-
-      // Score
-      doc.setFillColor(240, 240, 240);
-      doc.rect(20, 80, 170, 35, 'F');
       doc.setFontSize(18);
-      doc.setTextColor(34, 158, 217);
-      doc.text(`Correct Answers: ${correctCount}/${totalQuestions} (${scorePercent}%)`, 105, 98, { align: "center" });
+      doc.text("Participant:", 20, 65);
+      doc.setFontSize(20);
+      doc.setTextColor(0, 51, 102);
+      doc.text(userName.toUpperCase(), 20, 78);
 
-      doc.setDrawColor(34, 158, 217);
-      doc.setLineWidth(0.8);
-      doc.line(20, 125, 190, 125);
+      // Submission Date
+      doc.setFontSize(12);
+      doc.setTextColor(80, 80, 80);
+      doc.text(`Submitted on: ${submissionDate}`, 20, 92);
 
-      // Answers
-      let y = 145;
+      // Score Summary (clean & professional)
+      doc.setFillColor(245, 245, 245);
+      doc.rect(20, 105, 170, 28, 'F');
+      
+      doc.setFontSize(16);
+      doc.setTextColor(0, 51, 102);
+      doc.text(`Score: ${correctCount}/${totalQuestions} (${scorePercent}%)`, 105, 122, { align: "center" });
+
+      // Separator
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.7);
+      doc.line(20, 145, 190, 145);
+
+      // Detailed Answers
+      let y = 165;
       doc.setFontSize(13);
       doc.setTextColor(0, 0, 0);
 
@@ -216,21 +136,22 @@
         const userAnswer = ans.answer || "⏰ Time expired";
         const isCorrect = ans.correct;
 
+        doc.setFontSize(12);
         doc.text(`${i+1}. ${q.q}`, 20, y);
-        y += 12;
+        y += 10;
 
         doc.setFontSize(11);
         if (isCorrect) {
-          doc.setTextColor(0, 150, 0);
-          doc.text(`✓ Your Answer: ${userAnswer}`, 25, y);
+          doc.setTextColor(0, 128, 0);
+          doc.text(`✓ ${userAnswer}`, 25, y);
         } else {
-          doc.setTextColor(200, 50, 50);
-          doc.text(`✕ Your Answer: ${userAnswer}`, 25, y);
+          doc.setTextColor(200, 0, 0);
+          doc.text(`✕ ${userAnswer}`, 25, y);
         }
-        y += 9;
+        y += 8;
 
-        doc.setTextColor(80, 80, 80);
-        doc.text(`Correct Answer: ${q.options[q.correct]}`, 25, y);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Correct: ${q.options[q.correct]}`, 25, y);
         y += 18;
 
         if (y > 270) {
@@ -242,12 +163,11 @@
       // Footer
       doc.setFontSize(10);
       doc.setTextColor(140, 140, 140);
-      doc.text("Thank you for participating!", 105, 290, { align: "center" });
-      doc.text("Generated via Telegram Mini App", 105, 297, { align: "center" });
+      doc.text("Thank you for your participation", 105, 290, { align: "center" });
 
       const pdfBase64 = doc.output('datauristring').split(',')[1];
 
-      // Progress
+      // Progress simulation
       const progressBar = document.getElementById('progress-bar');
       let progress = 0;
       const progressInterval = setInterval(() => {
@@ -256,7 +176,6 @@
         progressBar.style.width = progress + '%';
       }, 220);
 
-      // Send with no-cors mode to bypass CORS issues
       setTimeout(() => {
         clearInterval(progressInterval);
         progressBar.style.width = '100%';
@@ -274,17 +193,15 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
-          mode: 'no-cors'          // ← This is the key fix for CORS in Telegram Mini Apps
+          mode: 'no-cors'
         })
         .then(() => {
-          // With no-cors we can't read the response, so we assume success
           document.getElementById('thank-title').innerHTML = "✅ Thank you!";
           document.getElementById('thank-text').innerHTML = "Your submission has been recorded.<br>You can close this window now.";
           document.getElementById('status-text').style.display = "none";
         })
         .catch(err => {
           console.error("Fetch error:", err);
-          // Still show neutral success message (the PDF is usually sent anyway)
           document.getElementById('thank-title').innerHTML = "✅ Thank you!";
           document.getElementById('thank-text').innerHTML = "Your submission has been recorded.<br>You can close this window now.";
           document.getElementById('status-text').style.display = "none";
@@ -292,5 +209,3 @@
       }, 1800);
     }
   </script>
-</body>
-</html>
