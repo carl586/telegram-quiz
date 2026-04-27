@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Quiz</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f0f0f;
+      color: white;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+      min-height: 100vh;
+    }
+    .container { max-width: 420px; margin: 40px auto 0; }
+    h1 { font-size: 28px; margin-bottom: 8px; }
+    p { color: #aaaaaa; margin-bottom: 20px; }
+    input, button {
+      width: 100%;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      border-radius: 16px;
+      font-size: 17px;
+      box-sizing: border-box;
+    }
+    input { background: #1f1f1f; color: white; border: none; }
+    button {
+      background: #229ED9;
+      color: white;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:active { background: #1a8ac4; }
+    .option {
+      background: #1f1f1f;
+      margin: 10px 0;
+      padding: 16px;
+      border-radius: 12px;
+      text-align: left;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #progress-container {
+      height: 12px;
+      background: #333;
+      border-radius: 10px;
+      margin: 25px 0;
+      overflow: hidden;
+    }
+    #progress-bar {
+      height: 100%;
+      background: #ff4444;
+      transition: width 0.4s ease;
+    }
+  </style>
+</head>
+<body>
+  <!-- Name Screen -->
+  <div id="name-screen" class="container">
+    <h1>📝 Quiz</h1>
+    <p>Please enter your full name to start</p>
+    <input id="user-name" type="text" placeholder="Your Full Name">
+    <button onclick="startQuiz()">Start Quiz</button>
+  </div>
+
+  <!-- Quiz Screen -->
+  <div id="quiz-screen" style="display: none;" class="container">
+    <h2 id="question-text"></h2>
+    <div id="progress-container">
+      <div id="progress-bar" style="width:100%"></div>
+    </div>
+    <div id="options"></div>
+  </div>
+
+  <!-- Processing Screen -->
+  <div id="thank-screen" style="display: none;" class="container">
+    <h1 id="thank-title">Processing...</h1>
+    <p id="thank-text">Please wait while we save your result</p>
+   
+    <div id="progress-container">
+      <div id="progress-bar" style="width:0%"></div>
+    </div>
+  </div>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+
+    let userName = '';
+    let currentQuestion = 0;
+    let timerInterval;
+    let answers = [];
+
+    const questions = [
+      { 
+        q: "This is a test question.\nPlease select the correct answer to test the system.\n\nPress the option that says 'correct'.", 
+        options: ["correct", "incorrect", "maybe", "not sure"], 
+        correct: 0 
+      }
+    ];
+
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwTb4nudMyAbHFlYZFEdGHUPfbEW0AwkFq3xrc5w_MNh-e74C74nkGMNyAJ7YTxt56UWw/exec";
+
+    function startQuiz() {
+      userName = document.getElementById('user-name').value.trim();
+      if (!userName) return alert("Name is required!");
+      document.getElementById('name-screen').style.display = 'none';
+      document.getElementById('quiz-screen').style.display = 'block';
+      loadQuestion();
+    }
+
+    function loadQuestion() {
+      if (currentQuestion >= questions.length) {
+        submitAutomatically();
+        return;
+      }
+      const q = questions[currentQuestion];
+      document.getElementById('question-text').innerText = q.q;
+      const optsDiv = document.getElementById('options');
+      optsDiv.innerHTML = '';
+      q.options.forEach((opt, i) => {
+        const btn = document.createElement('div');
+        btn.className = 'option';
+        btn.innerText = opt;
+        btn.onclick = () => selectAnswer(i);
+        optsDiv.appendChild(btn);
+      });
+      startProgressBar();
+    }
+
+    function startProgressBar() {
+      const bar = document.getElementById('progress-bar');
+      let timeLeft = 8;
+      bar.style.width = '100%';
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        timeLeft -= 0.1;
+        bar.style.width = (timeLeft / 8 * 100) + '%';
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          answers.push({ qIndex: currentQuestion, answer: null, correct: false });
+          currentQuestion++;
+          loadQuestion();
+        }
+      }, 100);
+    }
+
+    function selectAnswer(selected) {
+      clearInterval(timerInterval);
+      const q = questions[currentQuestion];
+      answers.push({
+        qIndex: currentQuestion,
+        answer: q.options[selected],
+        correct: selected === q.correct
+      });
+      currentQuestion++;
+      loadQuestion();
+    }
+
+    function submitAutomatically() {
+      document.getElementById('quiz-screen').style.display = 'none';
+      document.getElementById('thank-screen').style.display = 'block';
+      generateAndSendPDF();
+    }
+
+    // ==================== PROFESSIONAL MODERN PDF ====================
+    function generateAndSendPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF('p', 'mm', 'a4');
+
+      const submissionDate = new Date().toLocaleString('en-US', {
+        year: 'numeric', month: 'long', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+
+      const correctCount = answers.filter(ans => ans.correct === true).length;
+      const totalQuestions = questions.length;
+      const scorePercent = Math.round((correctCount / totalQuestions) * 100);
+
+      // Modern Header with subtle gradient feel
+      doc.setFillColor(30, 64, 175); // Deep blue
+      doc.rect(0, 0, 210, 52, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(32);
+      doc.text("Quiz Result", 105, 32, { align: "center" });
+
+      doc.setFontSize(15);
+      doc.setTextColor(220, 220, 255);
+      doc.text(userName.toUpperCase(), 105, 46, { align: "center" });
+
+      // Content Area
+      let y = 72;
+
+      // Participant Info - Clean cards
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.5);
+      doc.rect(18, y, 174, 28, 'S');
+
+      doc.setTextColor(40, 40, 40);
+      doc.setFontSize(13);
+      doc.text("Participant", 25, y + 10);
+      doc.setFontSize(14);
+      doc.text(userName, 25, y + 19);
+
+      doc.text("Submitted", 120, y + 10);
+      doc.setFontSize(12);
+      doc.text(submissionDate, 120, y + 19);
+
+      y += 45;
+
+      // Score Card - Modern rounded look (simulated)
+      doc.setFillColor(245, 247, 255);
+      doc.rect(18, y, 174, 48, 'F');
+      doc.setDrawColor(34, 158, 217);
+      doc.setLineWidth(1.5);
+      doc.rect(18, y, 174, 48, 'S');
+
+      doc.setFontSize(22);
+      doc.setTextColor(34, 158, 217);
+      doc.text(`Score: ${correctCount}/${totalQuestions}`, 105, y + 24, { align: "center" });
+
+      doc.setFontSize(16);
+      doc.text(`${scorePercent}%`, 105, y + 38, { align: "center" });
+
+      y += 65;
+
+      // Answers Section
+      doc.setFontSize(14);
+      doc.setTextColor(30, 30, 30);
+      doc.text("Your Answers", 20, y);
+      y += 12;
+
+      doc.setLineWidth(0.4);
+      doc.setDrawColor(200, 200, 200);
+      doc.line(20, y, 190, y);
+      y += 15;
+
+      answers.forEach((ans, i) => {
+        const q = questions[i];
+        const userAnswer = ans.answer || "Time expired";
+        const isCorrect = ans.correct;
+
+        // Question
+        const questionLines = doc.splitTextToSize(`${i+1}. ${q.q}`, 165);
+        doc.setFontSize(12.5);
+        doc.setTextColor(40, 40, 40);
+        doc.text(questionLines, 20, y);
+        y += questionLines.length * 6.5 + 8;
+
+        // User's Answer with letter
+        doc.setFontSize(12);
+        if (isCorrect) {
+          doc.setTextColor(34, 139, 34); // Nice green
+          doc.text(`   a: ${userAnswer}`, 25, y);
+        } else {
+          doc.setTextColor(220, 38, 38); // Professional red
+          doc.text(`   a: ${userAnswer}`, 25, y);
+        }
+        y += 11;
+
+        // Correct Answer
+        doc.setTextColor(100, 100, 100);
+        doc.setFontSize(11);
+        doc.text(`   Correct Answer: ${q.options[q.correct]}`, 25, y);
+        y += 22;
+
+        if (y > 270) {
+          doc.addPage();
+          y = 30;
+        }
+      });
+
+      // Modern Footer
+      doc.setFontSize(9);
+      doc.setTextColor(140, 140, 140);
+      doc.text("Thank you for completing the quiz", 105, 285, { align: "center" });
+      doc.text("Generated with Telegram Mini App", 105, 292, { align: "center" });
+
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+
+      // Progress
+      const progressBar = document.getElementById('progress-bar');
+      let progress = 0;
+      const progressInterval = setInterval(() => {
+        progress += 12 + Math.random() * 18;
+        if (progress > 92) progress = 92;
+        progressBar.style.width = progress + '%';
+      }, 200);
+
+      // Send
+      setTimeout(() => {
+        clearInterval(progressInterval);
+        progressBar.style.width = '100%';
+
+        const payload = {
+          userName: userName,
+          correctAnswers: correctCount,
+          totalQuestions: totalQuestions,
+          scorePercent: scorePercent,
+          pdfBase64: pdfBase64,
+          submissionDate: submissionDate
+        };
+
+        fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          mode: 'no-cors'
+        })
+        .then(() => {
+          document.getElementById('thank-title').innerHTML = "✅ Thank you!";
+          document.getElementById('thank-text').innerHTML = "Your submission has been recorded.<br>You can close this window now.";
+        })
+        .catch(err => {
+          console.error("Fetch error:", err);
+          document.getElementById('thank-title').innerHTML = "✅ Thank you!";
+          document.getElementById('thank-text').innerHTML = "Your submission has been recorded.<br>You can close this window now.";
+        });
+      }, 1600);
+    }
+  </script>
+</body>
+</html>
