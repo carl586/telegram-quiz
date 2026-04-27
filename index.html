@@ -329,37 +329,47 @@
       doc.line(20, 125, 190, 125);
 
       // Answers
-      let y = 145;
-      doc.setFontSize(13);
-      doc.setTextColor(0, 0, 0);
+     let y = 145;
+doc.setFontSize(13);
+doc.setTextColor(0, 0, 0);
 
-      answers.forEach((ans, i) => {
-        const q = questions[i];
-        const userAnswer = ans.answer || "⏰ Time expired";
-        const isCorrect = ans.correct;
+answers.forEach((ans, i) => {
+  const q = questions[i];
+  const userAnswer = ans.answer || "⏰ Time expired";
+  const isCorrect = ans.correct;
 
-        doc.text(`${i+1}. ${q.q}`, 20, y);
-        y += 12;
+  // === QUESTION (with wrapping) ===
+  doc.setFontSize(13);
+  doc.setTextColor(0, 0, 0);
+  const maxWidth = 170;
+  const questionLines = doc.splitTextToSize(`${i+1}. ${q.q}`, maxWidth);
+  
+  doc.text(questionLines, 20, y);
+  y += questionLines.length * 7.5;   // Adjust multiplier if needed
 
-        doc.setFontSize(11);
-        if (isCorrect) {
-          doc.setTextColor(0, 150, 0);
-          doc.text(`✓ User's Answer: ${userAnswer}`, 25, y);
-        } else {
-          doc.setTextColor(200, 50, 50);
-          doc.text(`✕ User's Answer: ${userAnswer}`, 25, y);
-        }
-        y += 9;
+  // === USER'S ANSWER ===
+  doc.setFontSize(11);
+  if (isCorrect) {
+    doc.setTextColor(0, 150, 0);
+    doc.text(`✓ User's Answer: ${userAnswer}`, 25, y);
+  } else {
+    doc.setTextColor(200, 50, 50);
+    doc.text(`✕ User's Answer: ${userAnswer}`, 25, y);
+  }
+  y += 10;
 
-        doc.setTextColor(80, 80, 80);
-        doc.text(`Correct Answer: ${q.options[q.correct]}`, 25, y);
-        y += 18;
+  // === CORRECT ANSWER ===
+  doc.setTextColor(80, 80, 80);
+  const correctAnswerLines = doc.splitTextToSize(`Correct Answer: ${q.options[q.correct]}`, maxWidth);
+  doc.text(correctAnswerLines, 25, y);
+  y += correctAnswerLines.length * 7 + 12;   // Extra space after correct answer
 
-        if (y > 270) {
-          doc.addPage();
-          y = 30;
-        }
-      });
+  // === PAGE BREAK CHECK ===
+  if (y > 270) {
+    doc.addPage();
+    y = 30;
+  }
+});
 
       // Footer
       doc.setFontSize(10);
