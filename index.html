@@ -195,7 +195,6 @@
       doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(230, 240, 255);
-      doc.text("OFFICIAL RESULT", 105, 38, { align: "center" });
 
       // Info
       doc.setTextColor(0, 0, 0);
@@ -230,10 +229,10 @@
         doc.setFontSize(11);
         if (isCorrect) {
           doc.setTextColor(0, 150, 0);
-          doc.text(`✓ Your Answer: ${userAnswer}`, 25, y);
+          doc.text(`✓ User's Answer: ${userAnswer}`, 25, y);
         } else {
           doc.setTextColor(200, 50, 50);
-          doc.text(`✕ Your Answer: ${userAnswer}`, 25, y);
+          doc.text(`✕ User's Answer: ${userAnswer}`, 25, y);
         }
         y += 9;
 
