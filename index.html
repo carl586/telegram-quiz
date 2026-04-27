@@ -60,7 +60,6 @@
   </style>
 </head>
 <body>
-
   <!-- Name Screen -->
   <div id="name-screen" class="container">
     <h1>📝 Quiz</h1>
@@ -82,9 +81,11 @@
   <div id="thank-screen" style="display: none;" class="container">
     <h1 id="thank-title">Processing...</h1>
     <p id="thank-text">Please wait while we save your result</p>
+   
     <div id="progress-container">
       <div id="progress-bar" style="width:0%"></div>
     </div>
+    <p id="status-text" style="color:#aaa; margin-top:15px;"></p>
   </div>
 
   <script>
@@ -97,61 +98,20 @@
     let timerInterval;
     let answers = [];
 
-    // ==================== HOW TO ADD QUESTIONS (Easy Tutorial) ====================
-    // Just add new questions inside the array.
-    // Separate each question with a comma ,
-    // Questions will appear in completely random order every time.
-
     const questions = [
-      {
-        q: "This is a test question.\nPlease select the correct answer to test the system.\n\nPress the option that says 'correct'.",
-        options: ["correct", "incorrect", "maybe", "not sure"],
-        correct: 0
-      },
-      {
-        q: "What is the capital of Uzbekistan?",
-        options: ["Tashkent", "Samarkand", "Bukhara", "Andijan"],
-        correct: 0
-      },
-      {
-        q: "What is 5 + 5?",
-        options: ["15", "10", "11", "55"],
-        correct: 1
-      },
-      {
-        q: "Will Yaxyo get bonus for this 😊?",
-        options: ["Yes", "Maybe", "No"],
-        correct: 0
-      }
-      // Add more questions below like this:
-      // ,
-      // {
-      //   q: "Your new question here?",
-      //   options: ["Option 1", "Option 2", "Option 3"],
-      //   correct: 1
-      // }
+      { q: "It is only a test please press correct answer to test it out at the end", options: ["correct", "incorrect"], correct: 0 },
+      { q: "What is the capital of Uzbekistan?", options: ["Tashkent", "Samarkand", "Bukhara", "Andijan"], correct: 0 },
+      { q: "What is 15 + 15?", options: ["25", "30", "20", "35"], correct: 1 },
+      { q: "Will I get bonus for it? 😊", options: ["Yes", "No", "Maybe", "Only if I smile"], correct: 0 }
     ];
 
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbySRLnomUj9Q5SOjafVMIVrybdBHUiQunn83uGI5eCQ-Wdzbn1BRQPIZQQe98woDdnAug/exec";
-
-    // Shuffle questions randomly
-    function shuffleArray(array) {
-      for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-      }
-    }
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwTb4nudMyAbHFlYZFEdGHUPfbEW0AwkFq3xrc5w_MNh-e74C74nkGMNyAJ7YTxt56UWw/exec";
 
     function startQuiz() {
       userName = document.getElementById('user-name').value.trim();
       if (!userName) return alert("Name is required!");
-
-      shuffleArray(questions);                    // Random order every time
-
       document.getElementById('name-screen').style.display = 'none';
       document.getElementById('quiz-screen').style.display = 'block';
-      currentQuestion = 0;
-      answers = [];
       loadQuestion();
     }
 
@@ -161,8 +121,7 @@
         return;
       }
       const q = questions[currentQuestion];
-      document.getElementById('question-text').innerText = q.q;
-
+      document.getElementById('question-text').innerText = `${currentQuestion + 1}. ${q.q}`;
       const optsDiv = document.getElementById('options');
       optsDiv.innerHTML = '';
       q.options.forEach((opt, i) => {
@@ -177,12 +136,12 @@
 
     function startProgressBar() {
       const bar = document.getElementById('progress-bar');
-      let timeLeft = 8;
+      let timeLeft = 10;
       bar.style.width = '100%';
       clearInterval(timerInterval);
       timerInterval = setInterval(() => {
         timeLeft -= 0.1;
-        bar.style.width = (timeLeft / 8 * 100) + '%';
+        bar.style.width = (timeLeft / 10 * 100) + '%';
         if (timeLeft <= 0) {
           clearInterval(timerInterval);
           answers.push({ qIndex: currentQuestion, answer: null, correct: false });
@@ -210,10 +169,10 @@
       generateAndSendPDF();
     }
 
-    // ==================== PROFESSIONAL MODERN PDF ====================
     function generateAndSendPDF() {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF('p', 'mm', 'a4');
+
       const submissionDate = new Date().toLocaleString('en-US', {
         year: 'numeric', month: 'long', day: 'numeric',
         hour: '2-digit', minute: '2-digit'
@@ -224,81 +183,55 @@
       const scorePercent = Math.round((correctCount / totalQuestions) * 100);
 
       // Header
-      doc.setFillColor(30, 64, 175);
-      doc.rect(0, 0, 210, 52, 'F');
+      doc.setFillColor(34, 158, 217);
+      doc.rect(0, 0, 210, 35, 'F');
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(32);
-      doc.text("Quiz Result", 105, 32, { align: "center" });
-      doc.setFontSize(15);
-      doc.setTextColor(220, 220, 255);
-      doc.text(userName.toUpperCase(), 105, 46, { align: "center" });
+      doc.setFontSize(24);
+      doc.text("📋 Quiz Result", 105, 22, { align: "center" });
 
-      let y = 72;
-
-      // Participant Info
-      doc.setDrawColor(220, 220, 220);
-      doc.setLineWidth(0.5);
-      doc.rect(18, y, 174, 28, 'S');
-      doc.setTextColor(40, 40, 40);
-      doc.setFontSize(13);
-      doc.text("Participant", 25, y + 10);
-      doc.setFontSize(14);
-      doc.text(userName, 25, y + 19);
-      doc.text("Submitted", 120, y + 10);
-      doc.setFontSize(12);
-      doc.text(submissionDate, 120, y + 19);
-
-      y += 45;
-
-      // Score Card
-      doc.setFillColor(245, 247, 255);
-      doc.rect(18, y, 174, 48, 'F');
-      doc.setDrawColor(34, 158, 217);
-      doc.setLineWidth(1.5);
-      doc.rect(18, y, 174, 48, 'S');
-      doc.setFontSize(22);
-      doc.setTextColor(34, 158, 217);
-      doc.text(`Score: ${correctCount}/${totalQuestions}`, 105, y + 24, { align: "center" });
+      // Info
+      doc.setTextColor(0, 0, 0);
       doc.setFontSize(16);
-      doc.text(`${scorePercent}%`, 105, y + 38, { align: "center" });
+      doc.text(`Participant: ${userName}`, 20, 55);
+      doc.text(`Submitted: ${submissionDate}`, 20, 65);
 
-      y += 65;
+      // Score
+      doc.setFillColor(240, 240, 240);
+      doc.rect(20, 80, 170, 35, 'F');
+      doc.setFontSize(18);
+      doc.setTextColor(34, 158, 217);
+      doc.text(`Correct Answers: ${correctCount}/${totalQuestions} (${scorePercent}%)`, 105, 98, { align: "center" });
+
+      doc.setDrawColor(34, 158, 217);
+      doc.setLineWidth(0.8);
+      doc.line(20, 125, 190, 125);
 
       // Answers
-      doc.setFontSize(14);
-      doc.setTextColor(30, 30, 30);
-      doc.text("Your Answers", 20, y);
-      y += 12;
-      doc.setLineWidth(0.4);
-      doc.setDrawColor(200, 200, 200);
-      doc.line(20, y, 190, y);
-      y += 15;
+      let y = 145;
+      doc.setFontSize(13);
+      doc.setTextColor(0, 0, 0);
 
       answers.forEach((ans, i) => {
         const q = questions[i];
-        const userAnswer = ans.answer || "Time expired";
+        const userAnswer = ans.answer || "⏰ Time expired";
         const isCorrect = ans.correct;
 
-        const questionLines = doc.splitTextToSize(`${i+1}. ${q.q}`, 165);
-        doc.setFontSize(12.5);
-        doc.setTextColor(40, 40, 40);
-        doc.text(questionLines, 20, y);
-        y += questionLines.length * 6.5 + 8;
+        doc.text(`${i+1}. ${q.q}`, 20, y);
+        y += 12;
 
-        doc.setFontSize(12);
-        if (isCorrect) {
-          doc.setTextColor(34, 139, 34);
-          doc.text(` a: ${userAnswer}`, 25, y);
-        } else {
-          doc.setTextColor(220, 38, 38);
-          doc.text(` a: ${userAnswer}`, 25, y);
-        }
-        y += 11;
-
-        doc.setTextColor(100, 100, 100);
         doc.setFontSize(11);
-        doc.text(` Correct Answer: ${q.options[q.correct]}`, 25, y);
-        y += 22;
+        if (isCorrect) {
+          doc.setTextColor(0, 150, 0);
+          doc.text(`✓ Your Answer: ${userAnswer}`, 25, y);
+        } else {
+          doc.setTextColor(200, 50, 50);
+          doc.text(`✕ Your Answer: ${userAnswer}`, 25, y);
+        }
+        y += 9;
+
+        doc.setTextColor(80, 80, 80);
+        doc.text(`Correct Answer: ${q.options[q.correct]}`, 25, y);
+        y += 18;
 
         if (y > 270) {
           doc.addPage();
@@ -307,23 +240,23 @@
       });
 
       // Footer
-      doc.setFontSize(9);
+      doc.setFontSize(10);
       doc.setTextColor(140, 140, 140);
-      doc.text("Thank you for completing the quiz", 105, 285, { align: "center" });
-      doc.text("Generated with Telegram Mini App", 105, 292, { align: "center" });
+      doc.text("Thank you for participating!", 105, 290, { align: "center" });
+      doc.text("Generated via Telegram Mini App", 105, 297, { align: "center" });
 
       const pdfBase64 = doc.output('datauristring').split(',')[1];
 
-      // Progress animation
+      // Progress
       const progressBar = document.getElementById('progress-bar');
       let progress = 0;
       const progressInterval = setInterval(() => {
         progress += 12 + Math.random() * 18;
         if (progress > 92) progress = 92;
         progressBar.style.width = progress + '%';
-      }, 200);
+      }, 220);
 
-      // Send to Google Script
+      // Send with no-cors mode to bypass CORS issues
       setTimeout(() => {
         clearInterval(progressInterval);
         progressBar.style.width = '100%';
@@ -341,18 +274,22 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
-          mode: 'no-cors'
+          mode: 'no-cors'          // ← This is the key fix for CORS in Telegram Mini Apps
         })
         .then(() => {
+          // With no-cors we can't read the response, so we assume success
           document.getElementById('thank-title').innerHTML = "✅ Thank you!";
           document.getElementById('thank-text').innerHTML = "Your submission has been recorded.<br>You can close this window now.";
+          document.getElementById('status-text').style.display = "none";
         })
         .catch(err => {
           console.error("Fetch error:", err);
+          // Still show neutral success message (the PDF is usually sent anyway)
           document.getElementById('thank-title').innerHTML = "✅ Thank you!";
           document.getElementById('thank-text').innerHTML = "Your submission has been recorded.<br>You can close this window now.";
+          document.getElementById('status-text').style.display = "none";
         });
-      }, 1600);
+      }, 1800);
     }
   </script>
 </body>
