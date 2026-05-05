@@ -3,10 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>ELD Quiz</title>
+  <title>ELD Quiz | Fleet Training</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
+    * {
+      box-sizing: border-box;
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #0f0f0f;
@@ -16,11 +19,19 @@
       text-align: center;
       min-height: 100vh;
     }
-    .container { max-width: 420px; margin: 40px auto 0; }
-    h1 { font-size: 28px; margin-bottom: 8px; }
-    p { color: #aaaaaa; margin-bottom: 20px; }
-
-    input, button {
+    .container {
+      max-width: 420px;
+      margin: 40px auto 0;
+    }
+    h1 {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+    p {
+      color: #aaaaaa;
+      margin-bottom: 20px;
+    }
+    input, select, button {
       width: 100%;
       padding: 16px 20px;
       margin-bottom: 15px;
@@ -28,17 +39,27 @@
       font-size: 17px;
       box-sizing: border-box;
     }
-    input { background: #1f1f1f; color: white; border: none; }
-
+    input, select {
+      background: #1f1f1f;
+      color: white;
+      border: none;
+      appearance: none;
+    }
+    select {
+      cursor: pointer;
+    }
     button {
       background: #229ED9;
       color: white;
       border: none;
       font-weight: 600;
       cursor: pointer;
+      transition: 0.1s linear;
     }
-    button:active { background: #1a8ac4; }
-
+    button:active {
+      background: #1a8ac4;
+    }
+    /* difficulty buttons - clean, no colors except neutral style */
     .difficulty-btn {
       padding: 18px;
       font-size: 18px;
@@ -46,11 +67,12 @@
       border-radius: 16px;
       background: #1f1f1f;
       color: white;
-      border: 2px solid #333;
+      border: 2px solid #3a3a3a;
+      font-weight: normal;
     }
-    .difficulty-btn.medium { border-color: #229ED9; }
-    .difficulty-btn.hard   { border-color: #ff4444; font-weight: bold; }
-
+    .difficulty-btn:active {
+      background: #2c2c2c;
+    }
     .option {
       background: #1f1f1f;
       margin: 10px 0;
@@ -59,9 +81,11 @@
       text-align: left;
       font-size: 16px;
       cursor: pointer;
+      transition: 0.05s linear;
     }
-    .option:active { background: #2a2a2a; }
-
+    .option:active {
+      background: #2a2a2a;
+    }
     #progress-container {
       height: 12px;
       background: #333;
@@ -74,23 +98,43 @@
       background: linear-gradient(90deg, #ff4444, #ff8800);
       transition: width 0.4s ease;
     }
+    /* micro spacing */
+    .company-note {
+      font-size: 12px;
+      color: #777;
+      margin-top: -5px;
+      margin-bottom: 15px;
+    }
   </style>
 </head>
 <body>
-  <!-- Name Screen -->
+  <!-- Step 1: Name screen -->
   <div id="name-screen" class="container">
     <h1>📝 ELD Quiz</h1>
     <p>Please enter your full name</p>
     <input id="user-name" type="text" placeholder="Your Full Name">
-    <button onclick="selectDifficulty()">Continue</button>
+    <button onclick="goToCompany()">Continue</button>
   </div>
 
-  <!-- Difficulty Selection -->
+  <!-- Step 2: Company selection (Fair and Fast is default + placeholders) -->
+  <div id="company-screen" class="container" style="display: none;">
+    <h1>🏢 Select Company</h1>
+    <p>Choose your carrier / fleet</p>
+    <select id="company-select">
+      <option value="Fair and Fast">Fair and Fast</option>
+      <option value="Roadmasters Logistics">comp1</option>
+      <option value="Trans-Continental">comp2</option>
+      <option value="Eagle Line Haul">comp3</option>
+    </select>
+    <button onclick="proceedToDifficulty()">Next: Difficulty</button>
+  </div>
+
+  <!-- Step 3: Difficulty selection (clean, no colored borders) -->
   <div id="difficulty-screen" class="container" style="display: none;">
-    <h1>Select Difficulty</h1>
-    <p>Choose your quiz level</p>
-    <button class="difficulty-btn medium" onclick="startQuiz('medium')">Medium (30 Questions)</button>
-    <button class="difficulty-btn hard" onclick="startQuiz('hard')">Hard (30 Questions)</button>
+    <h1>🎯 Select Difficulty</h1>
+    <p id="company-difficulty-hint">Choose quiz level</p>
+    <button class="difficulty-btn" onclick="startQuiz('medium')">Medium (30 Questions)</button>
+    <button class="difficulty-btn" onclick="startQuiz('hard')">Hard (30 Questions)</button>
   </div>
 
   <!-- Quiz Screen -->
@@ -105,7 +149,7 @@
     </p>
   </div>
 
-  <!-- Processing Screen -->
+  <!-- Processing / Thank You Screen -->
   <div id="thank-screen" style="display: none;" class="container">
     <h1 id="thank-title">Processing...</h1>
     <p id="thank-text">Please wait while we save your result</p>
@@ -120,226 +164,233 @@
     tg.ready();
     tg.expand();
 
+    // ========== DATA MODELS ==========
     let userName = '';
+    let selectedCompany = '';
+    let selectedDifficulty = '';
     let currentQuestion = 0;
     let timerInterval;
     let answers = [];
-    let selectedDifficulty = '';
     let quizQuestions = [];
 
-    // ====================== MEDIUM QUESTIONS ======================
-    const mediumQuestions = [
+    // ------------------------------
+    // FAIR AND FAST QUESTIONS (all original questions merged – medium+hard intact)
+    // We store them exactly as before (30 med + 30 hard) but wrapped in companyQuestionBank
+    // Original mediumQuestions / hardQuestions are preserved 1:1.
+    // ------------------------------
+    const fairAndFastMedium = [
       { q: "You arrive at a scale and an officer approaches your truck. Your status is OFF duty. What should you do first?", 
         options: ["Stay OFF duty", "Switch to On Duty immediately", "Switch to Sleeper Berth", "Start driving"], correct: 1 },
-
       { q: "Your ELD freezes while driving. What is the correct action?", 
         options: ["Keep driving and fix later", "Restart and continue without logs", "Switch to paper logs and notify company", "Ignore it"], correct: 2 },
-
       { q: "You just finished fueling and forgot to change status from Driving. What should you do?", 
         options: ["Leave it", "Delete the log", "Edit to On Duty (fuel)", "Restart ELD"], correct: 2 },
-
       { q: "During inspection, the officer asks for logs. Your ELD is working. What is required?", 
         options: ["Show phone", "Transfer logs electronically", "Say system is down", "Print only"], correct: 1 },
-
       { q: "You are doing a 30-minute break but sitting in the driver seat with engine on. Correct status?", 
         options: ["Driving", "On Duty", "OFF duty", "Yard Move"], correct: 2 },
-
       { q: "You move your truck inside a yard to another dock. What status?", 
         options: ["Driving", "PC", "Yard Move", "OFF duty"], correct: 2 },
-
       { q: "Dispatcher tells you to use Personal Conveyance to go to next shipper. What is correct?", 
         options: ["Accept and use PC", "Refuse and use Driving", "Use OFF duty", "Use Sleeper"], correct: 0 },
-
       { q: "You are stopped for DOT inspection but forgot to add remark. What should you do?", 
         options: ["Ignore", "Add “DOT inspection” remark", "Delete event", "Restart ELD"], correct: 1 },
-
       { q: "Your co-driver is driving. You are in passenger seat resting but not in sleeper. Status?", 
         options: ["OFF duty", "Sleeper Berth", "On Duty", "Driving"], correct: 0 },
-
       { q: "Your ELD shows a violation, but you believe it's wrong. What should you do?", 
         options: ["Ignore", "Edit if allowed and add annotation", "Delete violation", "Turn off ELD"], correct: 1 },
-
       { q: "Officer asks for last 7 days logs. You only have today’s logs. What happens?", 
         options: ["No issue", "Violation", "Warning only", "Allowed"], correct: 1 },
-
       { q: "You drive 2 miles without ELD due to malfunction. What must you do?", 
         options: ["Nothing", "Record on paper log", "Ignore", "Delete trip"], correct: 1 },
-
       { q: "You are loading but mark OFF duty. What is the issue?", 
         options: ["No issue", "HOS violation (wrong status)", "Device error", "Legal"], correct: 1 },
-
       { q: "Inspection starts. You remain in Sleeper Berth. Is it correct?", 
         options: ["Yes", "No, must be On Duty", "Only at night", "Only if tired"], correct: 1 },
-
       { q: "You forget to enter trailer number. What happens?", 
         options: ["No problem", "Minor violation", "Major violation", "Not required"], correct: 1 },
-
       { q: "You use Yard Move on public road. Result?", 
         options: ["OK", "Violation", "Recommended", "Optional"], correct: 1 },
-
       { q: "You use Personal Conveyance to move loaded trailer closer to delivery. Correct?", 
         options: ["Yes", "No, violation", "Only at night", "Only short distance"], correct: 1 },
-
       { q: "ELD malfunction continues for 2 days. What must happen?", 
         options: ["Keep driving", "Repair within 8 days", "Ignore", "Buy new truck"], correct: 1 },
-
       { q: "You are at a shipper waiting but not working. Status?", 
         options: ["Driving", "On Duty", "OFF duty (if relieved)", "Yard Move"], correct: 2 },
-
       { q: "Officer cannot receive your logs electronically. What do you do?", 
         options: ["Leave", "Show display or print", "Refuse", "Turn off device"], correct: 1 },
-
       { q: "You forgot to log pre-trip inspection. What should you do?", 
         options: ["Ignore", "Add/edit On Duty (pre-trip)", "Delete logs", "Restart ELD"], correct: 1 },
-
       { q: "Driver exceeds 11-hour driving limit. What is this?", 
         options: ["Warning", "HOS violation", "Normal", "Optional"], correct: 1 },
-
       { q: "You are resting in sleeper while co-driver drives. Correct status?", 
         options: ["OFF duty", "Sleeper Berth", "On Duty", "PC"], correct: 1 },
-
       { q: "You move truck for maintenance inside yard. Status?", 
         options: ["Driving", "PC", "Yard Move", "OFF duty"], correct: 2 },
-
       { q: "You start driving without logging in to ELD. Result?", 
         options: ["OK", "Unidentified driving event", "Legal", "Optional"], correct: 1 },
-
       { q: "Officer asks what PC means. Correct answer?", 
         options: ["Work driving", "Personal use only", "Yard work", "Inspection"], correct: 1 },
-
       { q: "You edit logs but don’t add note. Issue?", 
         options: ["No issue", "Violation risk (no annotation)", "Required", "Optional"], correct: 1 },
-
       { q: "Driver logs show gaps in time. What does it indicate?", 
         options: ["Perfect logs", "Possible violation", "Normal", "Good practice"], correct: 1 },
-
       { q: "You switch to OFF duty during unloading to save hours. Result?", 
         options: ["Smart", "Violation", "Legal", "Recommended"], correct: 1 },
-
       { q: "DOT officer sees multiple log errors. Likely outcome?", 
         options: ["Nothing", "Warning only", "Fines / out-of-service risk", "Reward"], correct: 2 }
     ];
 
-    // ====================== HARD QUESTIONS ======================
-    const hardQuestions = [
+    const fairAndFastHard = [
       { q: "You arrive at a shipper and are told to wait but must stay near the truck. You are free to relax but cannot leave. Status?", 
         options: ["OFF duty", "On Duty", "Sleeper", "PC"], correct: 1 },
-
       { q: "You finish your 30-min break, but during it you answered dispatch calls. Is it valid?", 
         options: ["Yes", "No (work = invalid break)", "Only if short", "Only if parked"], correct: 1 },
-
       { q: "You use PC to drive to a truck stop after unloading, but dispatch already assigned next load. Legal?", 
         options: ["Yes", "No (not fully relieved from work)", "Only under 10 miles", "Only empty"], correct: 1 },
-
       { q: "ELD auto-switches you to Driving at 5 mph while moving in yard. You forgot YM. Result?", 
         options: ["OK", "Driving time counted (possible violation)", "Ignored", "Auto-fixed"], correct: 1 },
-
       { q: "You log OFF duty but remain responsible for truck security. Correct?", 
         options: ["Yes", "No (still On Duty)", "Optional", "Only at night"], correct: 1 },
-
       { q: "You are in sleeper, but co-driver wakes you to help with directions. Status still valid?", 
         options: ["Yes", "No (interruption breaks SB)", "Only if short", "Always valid"], correct: 1 },
-
       { q: "You use Yard Move at a customer facility open to public traffic. Legal?", 
         options: ["Yes", "No (public access = not yard)", "Only daytime", "Optional"], correct: 1 },
-
       { q: "You forgot to certify yesterday’s log. During inspection, what happens?", 
         options: ["Nothing", "Violation", "Warning only", "Auto-certified"], correct: 1 },
-
       { q: "You accept an unidentified driving event you did NOT drive. Correct?", 
         options: ["Yes", "No (must reject)", "Optional", "Required"], correct: 1 },
-
       { q: "You edit logs after inspection request but before transfer. Issue?", 
         options: ["No issue", "Serious violation (tampering risk)", "Recommended", "Optional"], correct: 1 },
-
       { q: "You go OFF duty at shipper but help with paperwork. Valid OFF duty?", 
         options: ["Yes", "No (work activity)", "Optional", "Only short"], correct: 1 },
-
       { q: "You split sleeper berth incorrectly (not 8/2 or 7/3). Result?", 
         options: ["Valid", "Violation", "Warning", "Ignored"], correct: 1 },
-
       { q: "ELD time is incorrect (wrong time zone). Who is responsible?", 
         options: ["Company", "Driver", "DOT", "No one"], correct: 1 },
-
       { q: "You log PC but trailer is loaded and moving toward next delivery. Result?", 
         options: ["Legal", "Violation", "Optional", "Only short distance"], correct: 1 },
-
       { q: "You are stopped roadside but stay in Driving status. Issue?", 
         options: ["None", "Violation (wrong status)", "Optional", "Auto-fix"], correct: 1 },
-
       { q: "You log OFF duty but sit in driver seat ready to move immediately. Valid?", 
         options: ["Yes", "No (not relieved)", "Optional", "Always valid"], correct: 1 },
-
       { q: "You exceed 14-hour window but still have driving hours left. Can you drive?", 
         options: ["Yes", "No", "Only short", "Only empty"], correct: 1 },
-
       { q: "You forget to log location manually when ELD fails GPS. Result?", 
         options: ["No issue", "Violation", "Optional", "System fills later"], correct: 1 },
-
       { q: "You log Sleeper Berth while sitting in passenger seat. Correct?", 
         options: ["Yes", "No", "Optional", "Only team drivers"], correct: 1 },
-
       { q: "You are On Duty but not driving, waiting at dock. Does it count toward 14-hour limit?", 
         options: ["No", "Yes", "Optional", "Only partially"], correct: 1 },
-
       { q: "You use PC to reposition truck for next dispatch load. Legal?", 
         options: ["Yes", "No", "Only empty", "Only under 5 miles"], correct: 1 },
-
       { q: "You didn’t log trailer number but everything else is correct. Inspector reaction?", 
         options: ["Ignore", "Violation", "No issue", "Warning only"], correct: 1 },
-
       { q: "You log Yard Move but go 25 mph on private property. Issue?", 
         options: ["No issue", "Suspicious / potential misuse", "Legal", "Required"], correct: 1 },
-
       { q: "You accept edits from company that are incorrect. Who is responsible?", 
         options: ["Company", "Driver", "Both", "No one"], correct: 1 },
-
       { q: "You are OFF duty but truck is being loaded and you must supervise. Correct?", 
         options: ["Yes", "No (On Duty required)", "Optional", "Only if tired"], correct: 1 },
-
       { q: "You drive under PC but exceed reasonable distance. Result?", 
         options: ["OK", "Violation", "Optional", "Ignored"], correct: 1 },
-
       { q: "You fail to provide logs due to “low battery.” Result?", 
         options: ["Excused", "Violation", "Optional", "Warning only"], correct: 1 },
-
       { q: "You log Driving while actually parked to avoid violation. Result?", 
         options: ["Smart", "Falsification (serious violation)", "Optional", "Legal"], correct: 1 },
-
       { q: "You forget to log post-trip inspection. Issue?", 
         options: ["No issue", "Violation risk", "Optional", "Ignored"], correct: 1 },
-
       { q: "Inspector sees repeated minor errors (annotations missing, small mistakes). Likely result?", 
         options: ["No issue", "Pattern = higher enforcement / penalties", "Ignored", "Reward"], correct: 1 }
     ];
 
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzJVP65Py-GkSyHpqWgOA4HlAZ29F0D7dWnqk-5hvrdEy8-onLAlkN8gGkvHq6uIl11QA/exec";
+    // ----- COMPANY DATABASE - for future expansion. Currently only "Fair and Fast" has questions.
+    // Other companies: we keep empty arrays so that later you can add hard/medium to each.
+    // Structure clean for adding new questions & difficulties: just add medium/hard arrays.
+    const companyQuestionBank = {
+      "Fair and Fast": {
+        medium: fairAndFastMedium,
+        hard: fairAndFastHard
+      },
+      "comp1": {
+        medium: [],
+        hard: []
+      },
+      "comp2": {
+        medium: [],
+        hard: []
+      },
+      "comp3": {
+        medium: [],
+        hard: []
+      }
+    };
 
-    function selectDifficulty() {
+    // Google Apps Script Web App URL
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrzmHzdHnKZDeCqkHGiyefc9nmFurkMwtycAy2l3DH4CXlSOiz4as3IvGONUQfmXtNdg/exec";
+
+    // ------------- FLOW CONTROL -------------
+    function goToCompany() {
       userName = document.getElementById('user-name').value.trim();
-      if (!userName) return alert("Name is required!");
-
+      if (!userName) {
+        alert("Please enter your full name.");
+        return;
+      }
       document.getElementById('name-screen').style.display = 'none';
+      document.getElementById('company-screen').style.display = 'block';
+    }
+
+    function proceedToDifficulty() {
+      const companySelect = document.getElementById('company-select');
+      selectedCompany = companySelect.value;
+      // Optional: if company has no questions, but we keep check and inform user (future-proofing)
+      const bank = companyQuestionBank[selectedCompany];
+      if ((!bank.medium || bank.medium.length === 0) && (!bank.hard || bank.hard.length === 0)) {
+        // For now just inform (but keep flow, Fair and Fast works). For other companies we show friendly message; we still allow but no questions
+        if (selectedCompany !== "Fair and Fast") {
+          alert(`"${selectedCompany}" quiz content is under development. Please select "Fair and Fast" to take the active quiz.`);
+          return;
+        }
+      }
+      document.getElementById('company-screen').style.display = 'none';
       document.getElementById('difficulty-screen').style.display = 'block';
+      const hintSpan = document.getElementById('company-difficulty-hint');
+      hintSpan.innerHTML = `Company: ${selectedCompany} — choose level`;
     }
 
     function startQuiz(difficulty) {
       selectedDifficulty = difficulty;
 
-      if (difficulty === 'medium') {
-        quizQuestions = [...mediumQuestions];
-      } else if (difficulty === 'hard') {
-        quizQuestions = [...hardQuestions];
+      // Get question set based on selected company & difficulty
+      const companyData = companyQuestionBank[selectedCompany];
+      if (!companyData) {
+        alert("Company data missing");
+        return;
       }
 
-      // Randomize questions
+      let questionSource = [];
+      if (difficulty === 'medium') {
+        questionSource = companyData.medium || [];
+      } else if (difficulty === 'hard') {
+        questionSource = companyData.hard || [];
+      }
+
+      // Validation: if company has no questions (other than Fair and Fast), show friendly error
+      if (!questionSource.length) {
+        alert(`No questions available for ${selectedCompany} in ${difficulty} mode. This company content will be added soon.`);
+        return;
+      }
+
+      // Clone questions & randomize order
+      quizQuestions = [...questionSource];
       quizQuestions.sort(() => Math.random() - 0.5);
+
+      // reset state
+      currentQuestion = 0;
+      answers = [];
 
       document.getElementById('difficulty-screen').style.display = 'none';
       document.getElementById('quiz-screen').style.display = 'block';
-
-      currentQuestion = 0;
-      answers = [];
       loadQuestion();
     }
 
@@ -357,11 +408,11 @@
       const optsDiv = document.getElementById('options');
       optsDiv.innerHTML = '';
 
-      q.options.forEach((opt, i) => {
+      q.options.forEach((opt, idx) => {
         const btn = document.createElement('div');
         btn.className = 'option';
         btn.innerText = opt;
-        btn.onclick = () => selectAnswer(i);
+        btn.onclick = () => selectAnswer(idx);
         optsDiv.appendChild(btn);
       });
 
@@ -389,13 +440,12 @@
     function selectAnswer(selected) {
       clearInterval(timerInterval);
       const q = quizQuestions[currentQuestion];
-
+      const isAnswerCorrect = (selected === q.correct);
       answers.push({
         qIndex: currentQuestion,
         answer: q.options[selected],
-        correct: selected === q.correct
+        correct: isAnswerCorrect
       });
-
       currentQuestion++;
       loadQuestion();
     }
@@ -419,35 +469,37 @@
       const totalQuestions = quizQuestions.length;
       const scorePercent = Math.round((correctCount / totalQuestions) * 100);
 
+      // header
       doc.setFillColor(34, 158, 217);
       doc.rect(0, 0, 210, 45, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(24);
       doc.setFont("helvetica", "bold");
-      doc.text(`${selectedDifficulty.toUpperCase()} QUIZ RESULT`, 105, 28, { align: "center" });
+      doc.text(`${selectedCompany.toUpperCase()} – ${selectedDifficulty.toUpperCase()} QUIZ`, 105, 28, { align: "center" });
 
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(15);
       doc.text(`Participant: ${userName}`, 20, 60);
-      doc.text(`Difficulty: ${selectedDifficulty.charAt(0).toUpperCase() + selectedDifficulty.slice(1)}`, 20, 70);
-      doc.text(`Submitted: ${submissionDate}`, 20, 80);
+      doc.text(`Company: ${selectedCompany}`, 20, 70);
+      doc.text(`Difficulty: ${selectedDifficulty.charAt(0).toUpperCase() + selectedDifficulty.slice(1)}`, 20, 80);
+      doc.text(`Submitted: ${submissionDate}`, 20, 90);
 
       doc.setFillColor(240, 240, 240);
-      doc.rect(20, 95, 170, 35, 'F');
+      doc.rect(20, 105, 170, 35, 'F');
       doc.setFontSize(18);
       doc.setTextColor(34, 158, 217);
-      doc.text(`Score: ${correctCount}/${totalQuestions} (${scorePercent}%)`, 105, 113, { align: "center" });
+      doc.text(`Score: ${correctCount}/${totalQuestions} (${scorePercent}%)`, 105, 123, { align: "center" });
 
       doc.setDrawColor(34, 158, 217);
-      doc.line(20, 140, 190, 140);
+      doc.line(20, 150, 190, 150);
 
-      let y = 160;
-      answers.forEach((ans, i) => {
-        const q = quizQuestions[i];
+      let y = 170;
+      answers.forEach((ans, idx) => {
+        const q = quizQuestions[idx];
         const userAnswer = ans.answer || "⏰ Time expired";
         const isCorrect = ans.correct;
 
-        const questionLines = doc.splitTextToSize(`${i+1}. ${q.q}`, 170);
+        const questionLines = doc.splitTextToSize(`${idx+1}. ${q.q}`, 170);
         doc.text(questionLines, 20, y);
         y += questionLines.length * 7.5;
 
@@ -490,6 +542,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             userName: userName,
+            company: selectedCompany,
             difficulty: selectedDifficulty,
             correctAnswers: correctCount,
             totalQuestions: totalQuestions,
@@ -498,13 +551,14 @@
             submissionDate: submissionDate
           }),
           mode: 'no-cors'
-        }).then(() => showSuccessMessage()).catch(() => showSuccessMessage());
+        }).catch(() => {});
+        showSuccessMessage();
       }, 1600);
     }
 
     function showSuccessMessage() {
       document.getElementById('thank-title').innerHTML = "✅ Thank you!";
-      document.getElementById('thank-text').innerHTML = "Your submission has been recorded.<br>You can close this window now.";
+      document.getElementById('thank-text').innerHTML = `Your submission (${selectedCompany}) has been recorded.<br>You can close this window now.`;
       document.getElementById('status-text').style.display = "none";
     }
   </script>
