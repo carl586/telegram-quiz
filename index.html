@@ -48,6 +48,9 @@
     select {
       cursor: pointer;
     }
+    select option[disabled] {
+      color: #888;
+    }
     button {
       background: #229ED9;
       color: white;
@@ -116,11 +119,12 @@
     <button onclick="goToCompany()">Continue</button>
   </div>
 
-  <!-- Step 2: Company selection (Fair and Fast is default + placeholders) -->
+  <!-- Step 2: Company selection (placeholder + active companies) -->
   <div id="company-screen" class="container" style="display: none;">
     <h1>🏢 Select Company</h1>
     <p>Choose your carrier / fleet</p>
     <select id="company-select">
+      <option value="" disabled selected>— Select a company —</option>
       <option value="Fair and Fast">Fair and Fast</option>
       <option value="Roadmasters Logistics">comp1</option>
       <option value="Trans-Continental">comp2</option>
@@ -343,15 +347,23 @@
     function proceedToDifficulty() {
       const companySelect = document.getElementById('company-select');
       selectedCompany = companySelect.value;
-      // Optional: if company has no questions, but we keep check and inform user (future-proofing)
+      
+      // Validate that a real company was selected (not the placeholder)
+      if (!selectedCompany || selectedCompany === "") {
+        alert("Please select a company from the list.");
+        return;
+      }
+      
+      // Check if company has any questions (future-proofing)
       const bank = companyQuestionBank[selectedCompany];
-      if ((!bank.medium || bank.medium.length === 0) && (!bank.hard || bank.hard.length === 0)) {
-        // For now just inform (but keep flow, Fair and Fast works). For other companies we show friendly message; we still allow but no questions
+      if (!bank || ((!bank.medium || bank.medium.length === 0) && (!bank.hard || bank.hard.length === 0))) {
+        // For companies without content, show friendly message but still allow if they select Fair and Fast?
         if (selectedCompany !== "Fair and Fast") {
           alert(`"${selectedCompany}" quiz content is under development. Please select "Fair and Fast" to take the active quiz.`);
           return;
         }
       }
+      
       document.getElementById('company-screen').style.display = 'none';
       document.getElementById('difficulty-screen').style.display = 'block';
       const hintSpan = document.getElementById('company-difficulty-hint');
@@ -419,15 +431,16 @@
       startProgressBar();
     }
 
+    // Timer set to 25 seconds per question
     function startProgressBar() {
       const bar = document.getElementById('progress-bar');
-      let timeLeft = 10;
+      let timeLeft = 25;
       bar.style.width = '100%';
       clearInterval(timerInterval);
 
       timerInterval = setInterval(() => {
         timeLeft -= 0.1;
-        bar.style.width = (timeLeft / 10 * 100) + '%';
+        bar.style.width = (timeLeft / 25 * 100) + '%';
         if (timeLeft <= 0) {
           clearInterval(timerInterval);
           answers.push({ qIndex: currentQuestion, answer: null, correct: false });
